@@ -8,7 +8,6 @@ import { meMobile, type UserDto } from '../../components/Me';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
-
 export interface DailyPlan {
   _id: string; // MongoDB usa _id
   id?: string; // Alias opcional
@@ -22,7 +21,6 @@ export interface DailyPlan {
   updatedAt: string;
 }
 
-
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const HOURS = ['7:00', '8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
@@ -34,51 +32,63 @@ export default function CalendarScreen() {
   const [selectedCell, setSelectedCell] = useState<{ day: number; hour: string }>({ day: 0, hour: '9:00' });
   const [editingPlan, setEditingPlan] = useState<DailyPlan | null>(null);
 
-
   useEffect(() => {
     let active = true;
+
     (async () => {
       try {
-        const userData = await meMobile();
+        // 1) Obtener usuario
+        const u = await meMobile();
         if (!active) return;
-        if (userData) setUser(userData);
+
+        if (!u) {
+          console.error('No se pudo obtener el usuario');
+          setLoading(false);
+          return;
+        }
+
+        setUser(u);
+
+        // 2) Cargar daily plans del usuario
+        if (!API_URL) {
+          console.error('Falta EXPO_PUBLIC_API_URL');
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(`${API_URL}/daily-plans/user/${u._id}`, {
+          credentials: 'include',
+        });
+
+        if (!active) return;
+
+        if (!res.ok) {
+          console.error('Error cargando daily plans');
+          setDailyPlans([]);
+        } else {
+          const data = await res.json();
+          setDailyPlans(data);
+        }
       } catch (e) {
         console.error(e);
+      } finally {
+        if (active) setLoading(false);
       }
     })();
+
     return () => {
       active = false;
     };
   }, []);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const userData = await fetch(`${API_URL}/daily-plans/user/${user?._id}`, {
-          credentials: "include",
-        }).then(res => res.json());
-        if (!active) return;
-        if (userData) setDailyPlans(userData);
-      } catch (e) {
-        console.error(e);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-
 
   const getPlansForDayAndHour = (dayIndex: number, hour: string): DailyPlan[] => {
     return dailyPlans.filter(plan => {
       if (plan.day !== dayIndex) return false;
-      
+
       const planStart = new Date(plan.startTime);
       const planHour = planStart.getHours();
       const cellHour = parseInt(hour.split(':')[0]);
-      
+
       return planHour === cellHour;
     });
   };
@@ -105,13 +115,18 @@ export default function CalendarScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              if (!API_URL || !user?._id) return;
+
               await fetch(`${API_URL}/daily-plans/${planId}`, {
                 method: 'DELETE',
                 credentials: 'include',
               });
-              await fetch(`${API_URL}/daily-plans/user/${user?._id}`, {
-                credentials: "include",
-              }).then(res => res.json()).then(data => setDailyPlans(data));
+
+              const refreshed = await fetch(`${API_URL}/daily-plans/user/${user._id}`, {
+                credentials: 'include',
+              }).then(res => res.json());
+
+              setDailyPlans(refreshed);
             } catch (err) {
               Alert.alert('Error', 'No se pudo eliminar el plan');
             }
@@ -123,10 +138,10 @@ export default function CalendarScreen() {
 
   const formatTime = (isoString: string): string => {
     const date = new Date(isoString);
-    return date.toLocaleTimeString('es-ES', { 
-      hour: '2-digit', 
+    return date.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
       minute: '2-digit',
-      hour12: false 
+      hour12: false,
     });
   };
 
@@ -147,19 +162,19 @@ export default function CalendarScreen() {
           <Text className="text-lg font-bold mr-1">🍅</Text>
           <Text className="text-base font-semibold">{user?.coins || '0'}</Text>
         </View>
-        
+
         <Text className="text-2xl font-madimi text-gray-800">Calendar</Text>
-        
+
         <View className="w-12" />
       </View>
 
       {/* Calendar Grid */}
-      <ScrollView 
+      <ScrollView
         className="flex-1 px-2"
         showsVerticalScrollIndicator={false}
       >
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           className="mt-3"
         >
@@ -167,9 +182,9 @@ export default function CalendarScreen() {
             {/* Header Row */}
             <View className="flex-row mb-1">
               <View className="w-12" />
-              {DAYS.map((day, index) => (
-                <View 
-                  key={day} 
+              {DAYS.map((day) => (
+                <View
+                  key={day}
                   className="flex-1 min-w-[80px] bg-[#CFD7AF] py-2 mx-0.5 rounded-t-lg items-center"
                 >
                   <Text className="text-xs font-bold text-gray-800">{day}</Text>
@@ -188,7 +203,7 @@ export default function CalendarScreen() {
                 {/* Day Cells */}
                 {DAYS.map((_, dayIndex) => {
                   const plans = getPlansForDayAndHour(dayIndex, hour);
-                  
+
                   return (
                     <TouchableOpacity
                       key={`${dayIndex}-${hour}`}
@@ -208,8 +223,8 @@ export default function CalendarScreen() {
                               {formatTime(plan.startTime)} - {formatTime(plan.endTime)}
                             </Text>
                             {plan.note && (
-                              <Text 
-                                className="text-[9px] text-gray-700 mt-0.5" 
+                              <Text
+                                className="text-[9px] text-gray-700 mt-0.5"
                                 numberOfLines={1}
                               >
                                 {plan.note}
@@ -245,10 +260,11 @@ export default function CalendarScreen() {
         onClose={() => setIsModalOpen(false)}
         onSuccess={async () => {
           try {
-            const userData = await fetch(`${API_URL}/daily-plans/user/${user?._id}`, {
-              credentials: "include",
+            if (!API_URL || !user?._id) return;
+            const data = await fetch(`${API_URL}/daily-plans/user/${user._id}`, {
+              credentials: 'include',
             }).then(res => res.json());
-            setDailyPlans(userData);
+            setDailyPlans(data);
           } catch (e) {
             console.error(e);
           }
