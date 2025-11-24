@@ -23,6 +23,13 @@ const images: Record<string, any> = {
     "/cats/defaultCat.png": require("../assets/images/cats/defaultCat.png"),
 };
 
+const sizes: Record<string, { width: number; height: number }> = {
+    "/cats/tabbyCat.png": { width: 155, height: 210 },
+    "/cats/cowCat.png": { width: 155, height: 210 },
+    "/cats/orangeTabbyCat.png": { width: 155, height: 210 },
+    "/cats/defaultCat.png": { width: 150, height: 190 },
+};
+
 export function Cat(CatProps: { catUrl?: string }) {
     
     const url = images[CatProps.catUrl || ''];
@@ -31,7 +38,7 @@ export function Cat(CatProps: { catUrl?: string }) {
         <View id="Cat" >
             <Image 
                 source={url} 
-                style={{ width: 155, height: 210 }} 
+                style={{ width: sizes[CatProps.catUrl || '']?.width || 155, height: sizes[CatProps.catUrl || '']?.height || 210 }} 
             />
         </View>
     );
