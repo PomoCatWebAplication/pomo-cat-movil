@@ -12,8 +12,37 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
-import { dailyPlansService, CreateDailyPlanDto, DailyPlan } from '../../lib/services/daily-plans.service';
-import { tasksService, Task } from '../../lib/services/tasks.service';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+
+export interface DailyPlan {
+  _id: string; // MongoDB usa _id
+  id?: string; // Alias opcional
+  day: number; // 0-6 (Monday-Sunday)
+  startTime: string; // ISO string
+  endTime: string; // ISO string
+  note?: string;
+  userId: string;
+  taskId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+
+export interface Task {
+  _id: string; // MongoDB usa _id
+  id?: string; // Alias opcional
+  title: string;
+  description?: string;
+  state: 'COMPLETED' | 'PENDING' | 'IN_PROGRESS';
+  notifyLocalTime?: string;
+  dailyMinutes?: number;
+  timezone?: string;
+  dueDate: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 
 interface DailyPlanModalProps {
   visible: boolean;
@@ -22,6 +51,15 @@ interface DailyPlanModalProps {
   selectedDay?: number;
   selectedHour?: string;
   editingPlan?: DailyPlan | null;
+  userId: string;
+}
+
+export interface CreateDailyPlanDto {
+  day: number; // 0-6
+  startTime: string; // ISO string
+  endTime: string; // ISO string
+  note?: string;
+  taskId: string;
 }
 
 const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -33,6 +71,7 @@ export default function DailyPlanModal({
   selectedDay = 0,
   selectedHour = '9:00',
   editingPlan,
+  userId,
 }: DailyPlanModalProps) {
   const [formData, setFormData] = useState({
     day: selectedDay,
@@ -62,7 +101,9 @@ export default function DailyPlanModal({
   const loadTasks = async () => {
     try {
       setLoadingTasks(true);
-      const allTasks = await tasksService.getAll();
+      const allTasks = await fetch(`${API_URL}/tasks/user/${userId}`, {
+        credentials: "include",
+      }).then(res => res.json());
       setTasks(allTasks);
     } catch (err) {
       console.error('Error loading tasks:', err);
@@ -116,14 +157,21 @@ export default function DailyPlanModal({
           throw new Error('El título de la tarea es requerido');
         }
 
-        const createdTask = await tasksService.create({
-          title: newTask.title,
-          description: newTask.description || undefined,
-          dueDate: newTask.dueDate,
-          state: 'PENDING',
+        const createdTask = await  fetch(`${API_URL}/tasks/${userId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: newTask.title,
+            description: newTask.description || undefined,
+            dueDate: newTask.dueDate,
+            state: 'PENDING',
+          }),
+          credentials: "include",
         });
 
-        taskId = (createdTask as any)._id || createdTask._id || createdTask.id;
+        taskId = (await createdTask.json())._id;
       } else if (!taskId) {
         throw new Error('Debes seleccionar una tarea');
       }
@@ -138,14 +186,35 @@ export default function DailyPlanModal({
 
       if (editingPlan) {
         const planId = (editingPlan as any)._id || editingPlan._id || editingPlan.id;
-        await dailyPlansService.update(planId, {
-          day: dto.day,
-          startTime: dto.startTime,
-          endTime: dto.endTime,
-          note: dto.note,
+        await fetch(`${API_URL}/daily-plans/${planId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            day: dto.day,
+            startTime: dto.startTime,
+            endTime: dto.endTime,
+            note: dto.note,
+            taskId: dto.taskId,
+          }),
+          credentials: "include",
         });
       } else {
-        await dailyPlansService.create(dto);
+        await fetch(`${API_URL}/daily-plans/${userId}/${taskId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            day: dto.day,
+            startTime: dto.startTime,
+            endTime: dto.endTime,
+            note: dto.note,
+            taskId: dto.taskId,
+          }),
+          credentials: "include",
+        });
       }
 
       onSuccess();

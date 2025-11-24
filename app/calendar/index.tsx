@@ -3,10 +3,25 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { dailyPlansService, DailyPlan } from '../../lib/services/daily-plans.service';
 import DailyPlanModal from '../../components/calendar/DailyPlanModal';
 import { meMobile, type UserDto } from '../../components/Me';
+
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
+
+
+export interface DailyPlan {
+  _id: string; // MongoDB usa _id
+  id?: string; // Alias opcional
+  day: number; // 0-6 (Monday-Sunday)
+  startTime: string; // ISO string
+  endTime: string; // ISO string
+  note?: string;
+  userId: string;
+  taskId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const HOURS = ['7:00', '8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
@@ -18,27 +33,43 @@ export default function CalendarScreen() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{ day: number; hour: string }>({ day: 0, hour: '9:00' });
   const [editingPlan, setEditingPlan] = useState<DailyPlan | null>(null);
-  console.log("API URL ->", API_URL);
+
 
   useEffect(() => {
-    loadUserAndPlans();
+    let active = true;
+    (async () => {
+      try {
+        const userData = await meMobile();
+        if (!active) return;
+        if (userData) setUser(userData);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const loadUserAndPlans = async () => {
-    try {
-      setLoading(true);
-      const userData = await meMobile();
-      setUser(userData);
-      
-      const plans = await dailyPlansService.getAllByUser();
-      setDailyPlans(plans);
-    } catch (err) {
-      console.error('Error loading data:', err);
-      Alert.alert('Error', 'No se pudieron cargar los planes');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const userData = await fetch(`${API_URL}/daily-plans/user/${user?._id}`, {
+          credentials: "include",
+        }).then(res => res.json());
+        if (!active) return;
+        if (userData) setDailyPlans(userData);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+
 
   const getPlansForDayAndHour = (dayIndex: number, hour: string): DailyPlan[] => {
     return dailyPlans.filter(plan => {
@@ -74,8 +105,13 @@ export default function CalendarScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await dailyPlansService.delete(planId);
-              await loadUserAndPlans();
+              await fetch(`${API_URL}/daily-plans/${planId}`, {
+                method: 'DELETE',
+                credentials: 'include',
+              });
+              await fetch(`${API_URL}/daily-plans/user/${user?._id}`, {
+                credentials: "include",
+              }).then(res => res.json()).then(data => setDailyPlans(data));
             } catch (err) {
               Alert.alert('Error', 'No se pudo eliminar el plan');
             }
@@ -204,9 +240,19 @@ export default function CalendarScreen() {
 
       {/* Modal */}
       <DailyPlanModal
+        userId={user?._id!}
         visible={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={loadUserAndPlans}
+        onSuccess={async () => {
+          try {
+            const userData = await fetch(`${API_URL}/daily-plans/user/${user?._id}`, {
+              credentials: "include",
+            }).then(res => res.json());
+            setDailyPlans(userData);
+          } catch (e) {
+            console.error(e);
+          }
+        }}
         selectedDay={selectedCell.day}
         selectedHour={selectedCell.hour}
         editingPlan={editingPlan}
