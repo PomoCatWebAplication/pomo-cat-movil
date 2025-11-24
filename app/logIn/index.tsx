@@ -1,20 +1,25 @@
   import { useFonts } from 'expo-font';
   import { StatusBar } from 'expo-status-bar';
   import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native';
-  import { Link, useRouter } from 'expo-router';
+  import { useRouter } from 'expo-router';
   import LoginForm from './login-form/loginForm'
 
 
 
   export default function login() {
     const [fontsLoaded] = useFonts({
-      Madimi: require('../../assets/fonts/Madimi.ttf'),
-    })
+        Madimi: require('../../assets/fonts/Madimi.ttf'),
+    });
 
     const router = useRouter();
 
     return (
-      <View style={styles.container}>
+      <View className='
+        flex-1
+        bg-[#FFEFD7]
+        items-center
+        justify-center
+      '>
         <StatusBar style='auto'/>
 
         <View style={styles.logo}>
@@ -26,12 +31,13 @@
           />
         </View>
 
-        <View>
+        <View style={{ backgroundColor: '#CFD7AF', padding: 20, borderRadius: 10, width: '80%', height: '40%', justifyContent: 'center', alignContent: 'center'}}>
+
           <LoginForm />
 
           <View style={{marginTop: 20, alignItems: 'center'}}>
             <TouchableOpacity onPress={() => router.push('/register')}>
-              <Text>Don't have an account? Register now</Text>
+              <Text style={{fontFamily: 'Madimi'}} >Don't have an account? Register now</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -71,5 +77,4 @@
       zIndex: 1,
 
     },
-
   });
