@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, Image, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Cat } from '../../components/Cat';
+import { Cat, type CatDto } from '../../components/Cat';
 import { useFonts } from 'expo-font';
+import { meMobile, type UserDto } from '../../components/Me';
+import { getCatMobile } from '../../components/getCatMovile';
 
 import SettingsIcon from '../../assets/images/icons/settings.svg'
 import CloseIcon from '../../assets/images/icons/close.svg'
@@ -29,7 +31,69 @@ const formatMMSS = (msv: number) => {
 
 
 export default function Home() {
-    const coins = 0;
+
+    const [user, setUser] = useState<UserDto | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+        try {
+            const u = await meMobile();
+            if (!active) return;
+            if (!u) {
+            setError('No se pudo obtener el usuario');
+            } else {
+            setUser(u);
+            }
+        } catch (e) {
+            if (!active) return;
+            setError(
+            e instanceof Error ? e.message : 'Error al cargar el usuario'
+            );
+        } finally {
+            if (active) setLoading(false);
+        }
+        })();
+
+        return () => {
+        active = false;
+        };
+    }, []);
+
+    const [catUrl, setCatUrl] = useState<CatDto|null>(null);
+
+    useEffect(() => {
+        let active = true;
+
+        (async () => {
+        try {
+            const cat = await getCatMobile();
+            if (!active) return;
+            setCatUrl(cat);
+        } catch (e) {
+            if (!active) return;
+            console.error(e);
+        } finally {
+            if (active) setLoading(false);
+        }
+        })();
+
+        return () => {
+        active = false;
+        };
+    }, []);
+
+    const [coins, setCoins] = useState<number>(0);
+
+    useEffect(() => {
+        if (user) {
+            setCoins(parseInt(user.coins));
+        }
+    }, [user]);
+
     const buttonClass = 'bg-[#FFEFD7] px-4 py-2 rounded-lg shadow-md h-10 items-center justify-center w-100';
     const [fontsLoaded] = useFonts({
     'Madimi-Regular': require('../../assets/fonts/Madimi.ttf'),
@@ -164,15 +228,17 @@ export default function Home() {
                 <View
                 id="coins"
                 className="
-                    w-full
-                    max-w-4xl
+                    flex-start 
+                    self-start 
+                    mb-2
+                    w-auto
                 "
                 >
                 <View
                     className="
                     bg-[#d4dbb2]
                     p-4 
-                    w-32 
+                    w-auto
                     rounded-lg
                     mb-4
                     ml-4
@@ -181,7 +247,7 @@ export default function Home() {
                     justify-between
                     "
                 >
-                    <Text>Coins: {coins}</Text>
+                    <Text style={{ fontFamily: 'Madimi' }}>Coins: {coins}</Text>
 
                     <Image
                     source={require('../../assets/images/coin.png')}
@@ -360,7 +426,7 @@ export default function Home() {
                     flex-1
                 "
                 >
-                <Cat />
+                <Cat catUrl={catUrl?.skin} />
                 </View>
 
                 <View id="navigation" className='
