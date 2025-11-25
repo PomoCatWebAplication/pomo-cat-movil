@@ -1,5 +1,4 @@
-// app/(calendar)/calendar.tsx
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,11 +8,11 @@ import { meMobile, type UserDto } from '../../components/Me';
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export interface DailyPlan {
-  _id: string; // MongoDB usa _id
-  id?: string; // Alias opcional
-  day: number; // 0-6 (Monday-Sunday)
-  startTime: string; // ISO string
-  endTime: string; // ISO string
+  _id: string;
+  id?: string; 
+  day: number; 
+  startTime: string; 
+  endTime: string; 
   note?: string;
   userId: string;
   taskId: string;
@@ -37,7 +36,7 @@ export default function CalendarScreen() {
 
     (async () => {
       try {
-        // 1) Obtener usuario
+        
         const u = await meMobile();
         if (!active) return;
 
@@ -49,7 +48,6 @@ export default function CalendarScreen() {
 
         setUser(u);
 
-        // 2) Cargar daily plans del usuario
         if (!API_URL) {
           console.error('Falta EXPO_PUBLIC_API_URL');
           setLoading(false);
@@ -156,7 +154,7 @@ export default function CalendarScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#F5F5F5]">
-      {/* Header */}
+
       <View className="bg-white px-4 py-3 flex-row items-center justify-between shadow-sm">
         <View className="bg-[#D4DBB2] rounded-xl px-3 py-2 flex-row items-center">
           <Text className="text-lg font-bold mr-1">🍅</Text>
@@ -168,7 +166,6 @@ export default function CalendarScreen() {
         <View className="w-12" />
       </View>
 
-      {/* Calendar Grid */}
       <ScrollView
         className="flex-1 px-2"
         showsVerticalScrollIndicator={false}
@@ -179,7 +176,6 @@ export default function CalendarScreen() {
           className="mt-3"
         >
           <View className="min-w-full">
-            {/* Header Row */}
             <View className="flex-row mb-1">
               <View className="w-12" />
               {DAYS.map((day) => (
@@ -192,15 +188,14 @@ export default function CalendarScreen() {
               ))}
             </View>
 
-            {/* Time Rows */}
+
             {HOURS.map((hour) => (
               <View key={hour} className="flex-row mb-1">
-                {/* Hour Cell */}
+
                 <View className="w-12 bg-[#CFD7AF] justify-center items-center rounded-l-lg mr-0.5">
                   <Text className="text-xs font-semibold text-gray-700">{hour}</Text>
                 </View>
 
-                {/* Day Cells */}
                 {DAYS.map((_, dayIndex) => {
                   const plans = getPlansForDayAndHour(dayIndex, hour);
 
@@ -220,16 +215,8 @@ export default function CalendarScreen() {
                             onLongPress={() => handleDeletePlan(planId)}
                           >
                             <Text className="text-[10px] font-bold text-gray-800">
-                              {formatTime(plan.startTime)} - {formatTime(plan.endTime)}
+                              {plan.note}
                             </Text>
-                            {plan.note && (
-                              <Text
-                                className="text-[9px] text-gray-700 mt-0.5"
-                                numberOfLines={1}
-                              >
-                                {plan.note}
-                              </Text>
-                            )}
                           </TouchableOpacity>
                         );
                       })}
@@ -242,7 +229,7 @@ export default function CalendarScreen() {
         </ScrollView>
       </ScrollView>
 
-      {/* Floating Add Button */}
+
       <TouchableOpacity
         className="absolute bottom-6 right-6 w-14 h-14 bg-[#CFD7AF] rounded-full items-center justify-center shadow-lg active:scale-95"
         onPress={() => {
@@ -253,7 +240,7 @@ export default function CalendarScreen() {
         <Ionicons name="add" size={32} color="#41513f" />
       </TouchableOpacity>
 
-      {/* Modal */}
+
       <DailyPlanModal
         userId={user?._id!}
         visible={isModalOpen}

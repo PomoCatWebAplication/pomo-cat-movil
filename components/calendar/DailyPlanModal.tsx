@@ -12,14 +12,15 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
+
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export interface DailyPlan {
-  _id: string; // MongoDB usa _id
-  id?: string; // Alias opcional
-  day: number; // 0-6 (Monday-Sunday)
-  startTime: string; // ISO string
-  endTime: string; // ISO string
+  _id: string;
+  id?: string;
+  day: number;
+  startTime: string;
+  endTime: string;
   note?: string;
   userId: string;
   taskId: string;
@@ -27,10 +28,9 @@ export interface DailyPlan {
   updatedAt: string;
 }
 
-
 export interface Task {
-  _id: string; // MongoDB usa _id
-  id?: string; // Alias opcional
+  _id: string;
+  id?: string;
   title: string;
   description?: string;
   state: 'COMPLETED' | 'PENDING' | 'IN_PROGRESS';
@@ -43,7 +43,6 @@ export interface Task {
   updatedAt: string;
 }
 
-
 interface DailyPlanModalProps {
   visible: boolean;
   onClose: () => void;
@@ -55,9 +54,9 @@ interface DailyPlanModalProps {
 }
 
 export interface CreateDailyPlanDto {
-  day: number; // 0-6
-  startTime: string; // ISO string
-  endTime: string; // ISO string
+  day: number;
+  startTime: string;
+  endTime: string;
   note?: string;
   taskId: string;
 }
@@ -73,18 +72,25 @@ export default function DailyPlanModal({
   editingPlan,
   userId,
 }: DailyPlanModalProps) {
+
+  const normalizeDay = (d?: number) => {
+  return d;
+  };
+
   const [formData, setFormData] = useState({
-    day: selectedDay,
+    day: normalizeDay(selectedDay),
     startTime: '',
     endTime: '',
     note: '',
     taskId: '',
   });
+
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
     dueDate: '',
   });
+
   const [createNewTask, setCreateNewTask] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loadingTasks, setLoadingTasks] = useState(false);
@@ -101,12 +107,19 @@ export default function DailyPlanModal({
   const loadTasks = async () => {
     try {
       setLoadingTasks(true);
-      const allTasks = await fetch(`${API_URL}/tasks/user/${userId}`, {
-        credentials: "include",
-      }).then(res => res.json());
-      setTasks(allTasks);
+      const res = await fetch(`${API_URL}/tasks/user/${userId}`, {
+        credentials: 'include',
+      });
+      const allTasks = await res.json();
+
+      if (Array.isArray(allTasks)) {
+        setTasks(allTasks);
+      } else {
+        setTasks([]);
+      }
     } catch (err) {
       console.error('Error loading tasks:', err);
+      setTasks([]);
     } finally {
       setLoadingTasks(false);
     }
@@ -115,7 +128,7 @@ export default function DailyPlanModal({
   const initializeForm = () => {
     if (editingPlan) {
       setFormData({
-        day: editingPlan.day,
+        day: normalizeDay(editingPlan.day),
         startTime: new Date(editingPlan.startTime).toISOString().slice(0, 16),
         endTime: new Date(editingPlan.endTime).toISOString().slice(0, 16),
         note: editingPlan.note || '',
@@ -129,17 +142,19 @@ export default function DailyPlanModal({
       const endDate = new Date(today.setHours(hour + 1, 0, 0, 0));
 
       setFormData({
-        day: selectedDay,
+        day: normalizeDay(selectedDay),
         startTime: startDate.toISOString().slice(0, 16),
         endTime: endDate.toISOString().slice(0, 16),
         note: '',
         taskId: '',
       });
+
       setNewTask({
         title: '',
         description: '',
         dueDate: startDate.toISOString().split('T')[0],
       });
+
       setCreateNewTask(true);
     }
     setError(null);
@@ -157,7 +172,7 @@ export default function DailyPlanModal({
           throw new Error('El título de la tarea es requerido');
         }
 
-        const createdTask = await  fetch(`${API_URL}/tasks/${userId}`, {
+        const createdTaskRes = await fetch(`${API_URL}/tasks/${userId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -168,10 +183,11 @@ export default function DailyPlanModal({
             dueDate: newTask.dueDate,
             state: 'PENDING',
           }),
-          credentials: "include",
+          credentials: 'include',
         });
 
-        taskId = (await createdTask.json())._id;
+        const createdTask = await createdTaskRes.json();
+        taskId = (createdTask as any)._id || createdTask.id;
       } else if (!taskId) {
         throw new Error('Debes seleccionar una tarea');
       }
@@ -198,7 +214,7 @@ export default function DailyPlanModal({
             note: dto.note,
             taskId: dto.taskId,
           }),
-          credentials: "include",
+          credentials: 'include',
         });
       } else {
         await fetch(`${API_URL}/daily-plans/${userId}/${taskId}`, {
@@ -213,7 +229,7 @@ export default function DailyPlanModal({
             note: dto.note,
             taskId: dto.taskId,
           }),
-          credentials: "include",
+          credentials: 'include',
         });
       }
 
@@ -228,6 +244,8 @@ export default function DailyPlanModal({
     }
   };
 
+  const dayLabel = DAYS[formData.day] ?? 'Día';
+
   return (
     <Modal
       visible={visible}
@@ -236,17 +254,15 @@ export default function DailyPlanModal({
       onRequestClose={onClose}
     >
       <View className="flex-1 bg-white">
-        {/* Header */}
         <View className="bg-white px-5 pt-12 pb-4 border-b border-gray-200 flex-row items-center justify-between">
           <Text className="text-xl font-bold">
-            {editingPlan ? 'Editar Plan' : 'Crear Nuevo Plan'}
+            {editingPlan ? `Editar Plan – ${dayLabel}` : `Crear Nuevo Plan – ${dayLabel}`}
           </Text>
           <TouchableOpacity onPress={onClose} className="p-2">
             <Ionicons name="close" size={28} color="#666" />
           </TouchableOpacity>
         </View>
 
-        {/* Form */}
         <ScrollView className="flex-1 px-5 pt-5" showsVerticalScrollIndicator={false}>
           {error && (
             <View className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4">
@@ -254,69 +270,97 @@ export default function DailyPlanModal({
             </View>
           )}
 
-          {/* Day Picker */}
+          {/* Picker de Día */}
           <View className="mb-5">
             <Text className="text-sm font-semibold text-gray-700 mb-2">Día</Text>
             <View className="border-2 border-gray-300 rounded-lg overflow-hidden">
               <Picker
                 selectedValue={formData.day}
-                onValueChange={(value) => setFormData({ ...formData, day: value })}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({ ...prev, day: value }))
+                }
+                style={{ width: '100%', height: 200 }}
+                dropdownIconColor="#4b5563"
+                mode="dropdown"
               >
                 {DAYS.map((dayName, index) => (
-                  <Picker.Item key={index} label={dayName} value={index} />
+                  <Picker.Item
+                    key={index}
+                    label={dayName}
+                    value={index}
+                    color="#111827"
+                  />
                 ))}
               </Picker>
             </View>
           </View>
 
-          {/* Start Time */}
           <View className="mb-5">
             <Text className="text-sm font-semibold text-gray-700 mb-2">Hora de inicio</Text>
             <TextInput
               className="border-2 border-gray-300 rounded-lg px-4 py-3 text-base"
               placeholder="HH:MM"
-              value={formData.startTime.slice(11, 16)}
+              value={formData.startTime ? formData.startTime.slice(11, 16) : ''}
               onChangeText={(text) => {
-                const newDateTime = formData.startTime.slice(0, 11) + text;
+                const base = formData.startTime || new Date().toISOString().slice(0, 11);
+                const newDateTime = base + text;
                 setFormData({ ...formData, startTime: newDateTime });
               }}
             />
           </View>
 
-          {/* End Time */}
           <View className="mb-5">
             <Text className="text-sm font-semibold text-gray-700 mb-2">Hora de fin</Text>
             <TextInput
               className="border-2 border-gray-300 rounded-lg px-4 py-3 text-base"
               placeholder="HH:MM"
-              value={formData.endTime.slice(11, 16)}
+              value={formData.endTime ? formData.endTime.slice(11, 16) : ''}
               onChangeText={(text) => {
-                const newDateTime = formData.endTime.slice(0, 11) + text;
+                const base = formData.endTime || new Date().toISOString().slice(0, 11);
+                const newDateTime = base + text;
                 setFormData({ ...formData, endTime: newDateTime });
               }}
             />
           </View>
 
-          {/* Toggle New Task */}
           {!editingPlan && (
             <TouchableOpacity
               className="flex-row items-center mb-5"
               onPress={() => setCreateNewTask(!createNewTask)}
             >
-              <View className={`w-6 h-6 rounded border-2 mr-3 items-center justify-center ${
-                createNewTask ? 'bg-[#e74c3c] border-[#e74c3c]' : 'border-gray-400'
-              }`}>
+              <View
+                className={`w-6 h-6 rounded border-2 mr-3 items-center justify-center ${
+                  createNewTask ? 'bg-[#e74c3c] border-[#e74c3c]' : 'border-gray-400'
+                }`}
+              >
                 {createNewTask && <Ionicons name="checkmark" size={18} color="white" />}
               </View>
               <Text className="text-base font-medium">Crear nueva tarea</Text>
             </TouchableOpacity>
           )}
 
-          {/* New Task Fields */}
           {createNewTask && !editingPlan ? (
             <>
+
               <View className="mb-5">
-                <Text className="text-sm font-semibold text-gray-700 mb-2">Título de la tarea *</Text>
+              <Text className="text-sm font-semibold text-gray-700 mb-2">
+                Titulo de la tarea *
+              </Text>
+              {/* Cambiar el input de nota con el de titulo y en usar una creada (Tarea) cuaando se coloca el nombre de la tarea, poner como titulo ese nombre */}
+              <TextInput
+                className="border-2 border-gray-300 rounded-lg px-4 py-3 text-base"
+                placeholder="Añade una nota..."
+                value={formData.note}
+                onChangeText={(text) => setFormData({ ...formData, note: text })}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+
+              <View className="mb-5">
+                <Text className="text-sm font-semibold text-gray-700 mb-2">
+                  Título de la tarea *
+                </Text>
                 <TextInput
                   className="border-2 border-gray-300 rounded-lg px-4 py-3 text-base"
                   placeholder="Ej: Estudiar para examen"
@@ -326,7 +370,9 @@ export default function DailyPlanModal({
               </View>
 
               <View className="mb-5">
-                <Text className="text-sm font-semibold text-gray-700 mb-2">Descripción (opcional)</Text>
+                <Text className="text-sm font-semibold text-gray-700 mb-2">
+                  Descripción (opcional)
+                </Text>
                 <TextInput
                   className="border-2 border-gray-300 rounded-lg px-4 py-3 text-base"
                   placeholder="Detalles adicionales..."
@@ -338,7 +384,9 @@ export default function DailyPlanModal({
               </View>
 
               <View className="mb-5">
-                <Text className="text-sm font-semibold text-gray-700 mb-2">Fecha de vencimiento *</Text>
+                <Text className="text-sm font-semibold text-gray-700 mb-2">
+                  Fecha de vencimiento *
+                </Text>
                 <TextInput
                   className="border-2 border-gray-300 rounded-lg px-4 py-3 text-base"
                   placeholder="YYYY-MM-DD"
@@ -353,41 +401,39 @@ export default function DailyPlanModal({
               <View className="border-2 border-gray-300 rounded-lg overflow-hidden">
                 <Picker
                   selectedValue={formData.taskId}
-                  onValueChange={(value) => setFormData({ ...formData, taskId: value })}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, taskId: value }))
+                  }
                   enabled={!loadingTasks}
+                  style={{ width: '100%', height: 200 }}
+                  dropdownIconColor="#4b5563"
+                  mode="dropdown"
                 >
-                  <Picker.Item 
-                    label={loadingTasks ? 'Cargando...' : 'Selecciona una tarea'} 
-                    value="" 
+                  <Picker.Item
+                    label={loadingTasks ? 'Cargando...' : 'Selecciona una tarea'}
+                    value=""
+                    color="#6b7280"
                   />
-                  {tasks.map((task) => {
-                    const taskId = (task as any)._id || task._id || task.id;
-                    return (
-                      <Picker.Item key={taskId} label={task.title} value={taskId} />
-                    );
-                  })}
+                  {Array.isArray(tasks) &&
+                    tasks.map((task) => {
+                      const taskId = (task as any)._id || task._id || task.id;
+                      return (
+                        <Picker.Item
+                          key={taskId}
+                          label={task.title}
+                          value={taskId}
+                          color="#111827"
+                        />
+                      );
+                    })}
                 </Picker>
               </View>
             </View>
           )}
 
-          {/* Note */}
-          <View className="mb-5">
-            <Text className="text-sm font-semibold text-gray-700 mb-2">Nota (opcional)</Text>
-            <TextInput
-              className="border-2 border-gray-300 rounded-lg px-4 py-3 text-base"
-              placeholder="Añade una nota..."
-              value={formData.note}
-              onChangeText={(text) => setFormData({ ...formData, note: text })}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-
           <View className="h-24" />
         </ScrollView>
 
-        {/* Footer Buttons */}
         <View className="px-5 py-4 border-t border-gray-200 flex-row gap-3 bg-white">
           <TouchableOpacity
             className="flex-1 bg-gray-100 py-4 rounded-lg items-center"
