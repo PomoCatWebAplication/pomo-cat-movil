@@ -74,7 +74,7 @@ export default function DailyPlanModal({
 }: DailyPlanModalProps) {
 
   const normalizeDay = (d?: number) => {
-  return d;
+    return d;
   };
 
   const [formData, setFormData] = useState({
@@ -90,6 +90,9 @@ export default function DailyPlanModal({
     description: '',
     dueDate: '',
   });
+
+  const [displayStartTime, setDisplayStartTime] = useState('');
+  const [displayEndTime, setDisplayEndTime] = useState('');
 
   const [createNewTask, setCreateNewTask] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -125,29 +128,63 @@ export default function DailyPlanModal({
     }
   };
 
+
+  const dateToLocalString = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+
+  const extractLocalTime = (isoString: string): string => {
+    const date = new Date(isoString);
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
   const initializeForm = () => {
     if (editingPlan) {
+      const startDate = new Date(editingPlan.startTime);
+      const endDate = new Date(editingPlan.endTime);
+      
       setFormData({
         day: normalizeDay(editingPlan.day),
-        startTime: new Date(editingPlan.startTime).toISOString().slice(0, 16),
-        endTime: new Date(editingPlan.endTime).toISOString().slice(0, 16),
+        startTime: dateToLocalString(startDate),
+        endTime: dateToLocalString(endDate),
         note: editingPlan.note || '',
         taskId: editingPlan.taskId,
       });
+      
+
+      setDisplayStartTime(extractLocalTime(editingPlan.startTime));
+      setDisplayEndTime(extractLocalTime(editingPlan.endTime));
+      
       setCreateNewTask(false);
     } else {
       const today = new Date();
       const hour = parseInt(selectedHour.split(':')[0]);
-      const startDate = new Date(today.setHours(hour, 0, 0, 0));
-      const endDate = new Date(today.setHours(hour + 1, 0, 0, 0));
+      const minute = parseInt(selectedHour.split(':')[1] || '0');
+      
+      const startDate = new Date();
+      startDate.setHours(hour, minute, 0, 0);
+      
+      const endDate = new Date();
+      endDate.setHours(hour + 1, minute, 0, 0);
 
       setFormData({
         day: normalizeDay(selectedDay),
-        startTime: startDate.toISOString().slice(0, 16),
-        endTime: endDate.toISOString().slice(0, 16),
+        startTime: dateToLocalString(startDate),
+        endTime: dateToLocalString(endDate),
         note: '',
         taskId: '',
       });
+
+      setDisplayStartTime(extractLocalTime(startDate.toISOString()));
+      setDisplayEndTime(extractLocalTime(endDate.toISOString()));
 
       setNewTask({
         title: '',
@@ -270,7 +307,6 @@ export default function DailyPlanModal({
             </View>
           )}
 
-          {/* Picker de Día */}
           <View className="mb-5">
             <Text className="text-sm font-semibold text-gray-700 mb-2">Día</Text>
             <View className="border-2 border-gray-300 rounded-lg overflow-hidden">
@@ -295,31 +331,51 @@ export default function DailyPlanModal({
             </View>
           </View>
 
+
           <View className="mb-5">
             <Text className="text-sm font-semibold text-gray-700 mb-2">Hora de inicio</Text>
             <TextInput
               className="border-2 border-gray-300 rounded-lg px-4 py-3 text-base"
               placeholder="HH:MM"
-              value={formData.startTime ? formData.startTime.slice(11, 16) : ''}
+              value={displayStartTime}
               onChangeText={(text) => {
-                const base = formData.startTime || new Date().toISOString().slice(0, 11);
-                const newDateTime = base + text;
-                setFormData({ ...formData, startTime: newDateTime });
+                setDisplayStartTime(text);
+                
+                if (text.length === 5 && text.includes(':')) {
+
+                  const [hours, minutes] = text.split(':');
+                  const newDate = new Date();
+                  newDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                  
+                  setFormData({ ...formData, startTime: dateToLocalString(newDate) });
+                }
               }}
+              keyboardType="default"
+              maxLength={5}
             />
           </View>
+
 
           <View className="mb-5">
             <Text className="text-sm font-semibold text-gray-700 mb-2">Hora de fin</Text>
             <TextInput
               className="border-2 border-gray-300 rounded-lg px-4 py-3 text-base"
               placeholder="HH:MM"
-              value={formData.endTime ? formData.endTime.slice(11, 16) : ''}
+              value={displayEndTime}
               onChangeText={(text) => {
-                const base = formData.endTime || new Date().toISOString().slice(0, 11);
-                const newDateTime = base + text;
-                setFormData({ ...formData, endTime: newDateTime });
+                setDisplayEndTime(text);
+                
+                if (text.length === 5 && text.includes(':')) {
+                  // Crear fecha con la hora local especificada
+                  const [hours, minutes] = text.split(':');
+                  const newDate = new Date();
+                  newDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                  
+                  setFormData({ ...formData, endTime: dateToLocalString(newDate) });
+                }
               }}
+              keyboardType="default"
+              maxLength={5}
             />
           </View>
 
@@ -341,7 +397,6 @@ export default function DailyPlanModal({
 
           {createNewTask && !editingPlan ? (
             <>
-
               <View className="mb-5">
                 <Text className="text-sm font-semibold text-gray-700 mb-2">
                   Título de la tarea *
