@@ -20,8 +20,23 @@ export interface DailyPlan {
   updatedAt: string;
 }
 
+export interface Task {
+  _id: string; // MongoDB usa _id
+  id?: string; // Alias opcional
+  title: string;
+  description?: string;
+  state: 'COMPLETED' | 'PENDING' | 'IN_PROGRESS';
+  notifyLocalTime?: string;
+  dailyMinutes?: number;
+  timezone?: string;
+  dueDate: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-const HOURS = ['7:00', '8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+const HOURS = ['7:00', '8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00', '00:00'];
 
 export default function CalendarScreen() {
   const [user, setUser] = useState<UserDto | null>(null);
@@ -30,54 +45,69 @@ export default function CalendarScreen() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{ day: number; hour: string }>({ day: 0, hour: '9:00' });
   const [editingPlan, setEditingPlan] = useState<DailyPlan | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
 
   useEffect(() => {
-    let active = true;
+    (async () => {
+      try {
+        const u = await meMobile();
+        if (!u) return setLoading(false);
+        setUser(u);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, []);
+
+      useEffect(() => {
+    if (!user) return;
 
     (async () => {
       try {
-        
-        const u = await meMobile();
-        if (!active) return;
-
-        if (!u) {
-          console.error('No se pudo obtener el usuario');
-          setLoading(false);
-          return;
-        }
-
-        setUser(u);
-
-        if (!API_URL) {
-          console.error('Falta EXPO_PUBLIC_API_URL');
-          setLoading(false);
-          return;
-        }
-
-        const res = await fetch(`${API_URL}/daily-plans/user/${u._id}`, {
-          credentials: 'include',
+        const tasksRes = await fetch(`${API_URL}/tasks/user/${user._id}`, {
+          credentials: "include",
         });
 
-        if (!active) return;
-
-        if (!res.ok) {
-          console.error('Error cargando daily plans');
-          setDailyPlans([]);
-        } else {
-          const data = await res.json();
-          setDailyPlans(data);
+        if (tasksRes.ok) {
+          const tasksData = await tasksRes.json();
+          setTasks(tasksData);
         }
       } catch (e) {
         console.error(e);
-      } finally {
-        if (active) setLoading(false);
       }
     })();
+  }, [user]);
 
-    return () => {
-      active = false;
-    };
-  }, []);
+  useEffect(() => {
+  if (!user) return;
+
+  (async () => {
+    try {
+      const res = await fetch(`${API_URL}/daily-plans/user/${user._id}`, {
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setDailyPlans(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  })();
+}, [user]); 
+
+  useEffect(() => {
+    if (user && dailyPlans) {
+      setLoading(false);
+    }
+  }, [user, dailyPlans]);
+
+
+  const getTaskTitle = (taskId: string): string => {
+    const task = tasks.find(t => (t as any)._id === taskId || t._id === taskId);
+    return task?.title || 'Sin título';
+  };
 
   const getPlansForDayAndHour = (dayIndex: number, hour: string): DailyPlan[] => {
     return dailyPlans.filter(plan => {
@@ -208,16 +238,24 @@ export default function CalendarScreen() {
                       {plans.map((plan) => {
                         const planId = (plan as any)._id || plan._id || plan.id;
                         return (
-                          <TouchableOpacity
-                            key={planId}
-                            className="bg-[#CFD7AF] rounded-md p-2 mb-1 border border-[#b8c499]"
-                            onPress={() => handleEditPlan(plan)}
-                            onLongPress={() => handleDeletePlan(planId)}
-                          >
-                            <Text className="text-[10px] font-bold text-gray-800">
+                        <TouchableOpacity
+                          key={planId}
+                          className="bg-[#CFD7AF] rounded-md p-2 mb-1 border border-[#b8c499]"
+                          onPress={() => handleEditPlan(plan)}
+                          onLongPress={() => handleDeletePlan(planId)}
+                        >
+                          <Text className="text-[10px] font-bold text-gray-800">
+                            {getTaskTitle(plan.taskId)}
+                          </Text>
+                          <Text className="text-[9px] text-gray-600 mt-0.5">
+                            {formatTime(plan.startTime)} - {formatTime(plan.endTime)}
+                          </Text>
+                          {plan.note && (
+                            <Text className="text-[9px] text-gray-700 mt-0.5" numberOfLines={1}>
                               {plan.note}
                             </Text>
-                          </TouchableOpacity>
+                          )}
+                        </TouchableOpacity>
                         );
                       })}
                     </TouchableOpacity>
@@ -248,14 +286,26 @@ export default function CalendarScreen() {
         onSuccess={async () => {
           try {
             if (!API_URL || !user?._id) return;
-            const data = await fetch(`${API_URL}/daily-plans/user/${user._id}`, {
+
+
+            const plansRes = await fetch(`${API_URL}/daily-plans/user/${user._id}`, {
               credentials: 'include',
-            }).then(res => res.json());
-            setDailyPlans(data);
+            });
+            const plans = await plansRes.json();
+            setDailyPlans(plans);
+
+
+            const tasksRes = await fetch(`${API_URL}/tasks/user/${user._id}`, {
+              credentials: 'include',
+            });
+            const t = await tasksRes.json();
+            setTasks(t);
+
           } catch (e) {
             console.error(e);
           }
         }}
+
         selectedDay={selectedCell.day}
         selectedHour={selectedCell.hour}
         editingPlan={editingPlan}

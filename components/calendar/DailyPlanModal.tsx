@@ -343,21 +343,6 @@ export default function DailyPlanModal({
             <>
 
               <View className="mb-5">
-              <Text className="text-sm font-semibold text-gray-700 mb-2">
-                Titulo de la tarea *
-              </Text>
-              {/* Cambiar el input de nota con el de titulo y en usar una creada (Tarea) cuaando se coloca el nombre de la tarea, poner como titulo ese nombre */}
-              <TextInput
-                className="border-2 border-gray-300 rounded-lg px-4 py-3 text-base"
-                placeholder="Añade una nota..."
-                value={formData.note}
-                onChangeText={(text) => setFormData({ ...formData, note: text })}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-
-              <View className="mb-5">
                 <Text className="text-sm font-semibold text-gray-700 mb-2">
                   Título de la tarea *
                 </Text>
@@ -368,7 +353,6 @@ export default function DailyPlanModal({
                   onChangeText={(text) => setNewTask({ ...newTask, title: text })}
                 />
               </View>
-
               <View className="mb-5">
                 <Text className="text-sm font-semibold text-gray-700 mb-2">
                   Descripción (opcional)
